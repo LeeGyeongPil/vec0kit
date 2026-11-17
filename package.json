@@ -1,0 +1,56 @@
+{
+  "name": "vec0kit",
+  "version": "0.1.0",
+  "description": "Inspect, check and safely migrate sqlite-vec vec0 tables (change dimensions, distance metric, quantization, metadata columns, re-embed) without hand-written scripts.",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "sqlite-vec",
+    "vec0",
+    "sqlite",
+    "vector",
+    "embeddings",
+    "migration",
+    "rag",
+    "cli"
+  ],
+  "bin": {
+    "vec0kit": "dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "README.ko.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prestart": "npm run build",
+    "start": "node dist/cli.js demo",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.test.json"
+  },
+  "dependencies": {
+    "better-sqlite3": "13.2.0",
+    "sqlite-vec": "0.1.9"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "9.6.0",
+    "@types/node": "22.20.5",
+    "typescript": "7.0.2",
+    "vitest": "5.1.0"
+  }
+}
