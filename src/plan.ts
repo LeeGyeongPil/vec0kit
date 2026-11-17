@@ -122,6 +122,8 @@ export function tempTableName(table: string): string {
 }
 
 /** 계획 거부(E_PLAN). reason 은 번역 메시지 키(reason.<reason>)이다. */
+const FILL_SAMPLE_LIMIT = 10;
+
 function planError(reason: string, message: string, params: MessageParams = {}): Vec0KitError {
   return new Vec0KitError("E_PLAN", message, { reason, detail: message, ...params });
 }
@@ -308,16 +310,50 @@ export function planMigration(db: Database, opts: MigrationOptions): MigrationPl
       if (drift > 0) notes.push({ key: "plan.note.int8-unit", params: { count: drift } });
     }
   }
-  // 메타 열을 본문에서 채울 때 값이 비면(NULL) vec0 가 거부하므로 미리 센다
+  // 메타 열을 본문에서 채울 때 값이 비면(NULL) vec0 가 거부하므로 미리 세고, 원인(고아 벡터 / source 값 NULL)별로 rowid 예시를 모은다
   for (const c of added) {
     if (c.kind === "metadata" && fill[c.name] && source) {
-      const sql =
+      const src = quoteIdent(source.table);
+      const sk = quoteIdent(source.key);
+      const col = quoteIdent(fill[c.name]!);
+      const vk = `v.${quoteIdent(key)}`;
+      const vec = quoteIdent(opts.table);
+      // 고아: source 에 키 행이 없는 벡터(reembed 는 고아를 이미 버리므로 해당 없음)
+      const orphanWhere = mode === "reembed" ? null : `from ${vec} v where not exists (select 1 from ${src} d where d.${sk} = ${vk})`;
+      // source 값 NULL: source 행은 있으나 채울 열이 NULL
+      const nullWhere =
         mode === "reembed"
-          ? `select count(*) as c from ${quoteIdent(source.table)} d where d.${quoteIdent(source.key)} is not null and d.${quoteIdent(fill[c.name]!)} is null`
-          : `select count(*) as c from ${quoteIdent(opts.table)} v where ${fromSource(fill[c.name]!)} is null`;
-      const nulls = Number((db.prepare(sql).get() as { c: bigint }).c);
+          ? `from ${src} d where d.${sk} is not null and d.${col} is null`
+          : `from ${vec} v where exists (select 1 from ${src} d where d.${sk} = ${vk}) and ${fromSource(fill[c.name]!)} is null`;
+      const nullKey = mode === "reembed" ? `d.${sk}` : vk;
+      const count = (where: string) => Number((db.prepare(`select count(*) as c ${where}`).get() as { c: bigint }).c);
+      const sampleOf = (k: string, where: string) =>
+        (db.prepare(`select ${k} as k ${where} order by k limit ${FILL_SAMPLE_LIMIT}`).all() as { k: bigint | string }[]).map((r) => r.k);
+      const orphans = orphanWhere ? count(orphanWhere) : 0;
+      const nullValues = count(nullWhere);
+      const nulls = orphans + nullValues;
       if (nulls > 0) {
-        throw planError("fill-nulls", `${nulls} rows have no value for new metadata column ${c.name} (NULL is not allowed)`, { column: c.name, count: nulls });
+        const orphanKeys = orphans > 0 ? sampleOf(vk, orphanWhere!) : [];
+        const nullKeys = nullValues > 0 ? sampleOf(nullKey, nullWhere) : [];
+        const reason = orphans > 0 && nullValues > 0 ? "fill-nulls-both" : orphans > 0 ? "fill-nulls-orphans" : "fill-nulls-values";
+        throw new Vec0KitError(
+          "E_PLAN",
+          `${nulls} rows have no value for new metadata column ${c.name} (NULL is not allowed)`,
+          {
+            reason,
+            column: c.name,
+            count: nulls,
+            orphans,
+            orphanKeys: orphanKeys.map(String).join(", "),
+            nullValues,
+            nullKeys: nullKeys.map(String).join(", "),
+            fillColumn: fill[c.name]!,
+            source: source.table,
+            sourceKey: source.key,
+            table: opts.table,
+          },
+          { orphans: { count: orphans, sample: orphanKeys }, nullValues: { count: nullValues, sample: nullKeys } },
+        );
       }
     }
   }

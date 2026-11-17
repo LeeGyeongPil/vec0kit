@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { openDatabase } from "../src/db.js";
 import { migrate } from "../src/migrate.js";
 import { planMigration } from "../src/plan.js";
-import { cli, countRows, declarationOf, makeCleanDb, masterNames, tempDir, withDb } from "./helpers/fixtures.js";
+import { cli, countRows, declarationOf, makeCleanDb, makeProblemDb, masterNames, tempDir, withDb } from "./helpers/fixtures.js";
 
 type Row = { rowid: bigint; cat: string; note: string; embedding: Buffer };
 
@@ -106,5 +106,34 @@ describe("AC-3 safe swap without RENAME", () => {
     const r = await cli(["migrate", path, "--table", "vec_docs", "--add-column", "lang text partition key", "--no-backup"]);
     expect(r.code).toBe(0);
     expect(declarationOf(path, "vec_docs")).toContain("lang text partition key");
+  });
+
+  it("--fill explains orphan vectors with rowids and a fix (en and ko)", async () => {
+    const path = join(tempDir(), "orphan.db");
+    makeProblemDb(path, "l2"); // orphan vectors 101 and 102 have no docs row
+    const args = ["migrate", path, "--table", "vec_docs", "--add-column", "year integer", "--fill", "year=id", "--source", "docs:id", "--on-invalid", "skip", "--dry-run"];
+    const en = await cli([...args, "--lang", "en"]);
+    expect(en.code).toBe(2);
+    expect(en.stderr).toContain("E_PLAN");
+    expect(en.stderr).toContain("101, 102");
+    expect(en.stderr).toContain("orphans");
+    expect(en.stderr).toContain("Fix:");
+    expect(en.stderr).toContain("--source docs:id");
+    const ko = await cli([...args, "--lang", "ko"]);
+    expect(ko.code).toBe(2);
+    expect(ko.stderr).toContain("101, 102");
+    expect(ko.stderr).toContain("고아");
+    expect(ko.stderr).toContain("고치는 법");
+  });
+
+  it("--fill explains NULL source values separately from orphans", async () => {
+    const path = join(tempDir(), "nullsrc.db");
+    makeCleanDb(path, "l2");
+    withDb(path, (db) => db.exec("ALTER TABLE docs ADD COLUMN year INTEGER; UPDATE docs SET year = id WHERE id NOT IN (3, 4)"));
+    const r = await cli(["migrate", path, "--table", "vec_docs", "--add-column", "year integer", "--fill", "year=year", "--source", "docs:id", "--dry-run", "--lang", "en"]);
+    expect(r.code).toBe(2);
+    expect(r.stderr).toContain("docs.year is NULL for 2 rows, e.g. 3, 4");
+    expect(r.stderr).toContain("Fix:");
+    expect(r.stderr).not.toContain("orphans");
   });
 });
