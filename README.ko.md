@@ -314,6 +314,7 @@ flowchart LR
 | 시작 전에 `error [E_INVALID_VECTORS]` | NaN 이나 0 벡터가 cosine 테이블로 들어가려 함. | 그 행을 다시 임베딩하거나, `--on-invalid skip` 으로 빼고 보고서에서 rowid 확인. |
 | `error [E_VERIFY]` 와 남은 임시 테이블 | recall(또는 다른 검사) 실패. 원본은 그대로. | `--min-recall` 을 낮춰 다시 실행하거나 `--abort` 로 지우기. |
 | `error [E_RESUME_MISMATCH]` | 다른 계획의 끝나지 않은 실행이 있음. | 같은 옵션으로 실행하거나 먼저 `--abort`. |
+| `오류 [E_PLAN]: 계획을 거부했습니다: N개 행에 새 메타데이터 열 … 의 값이 없습니다` | 고아 벡터(source 에 행 없음) 또는 `--fill` 원본 열의 NULL. 메시지에 rowid 예시가 나옴. | `check --source <테이블>:<키>` 로 확인한 뒤 고아를 지우거나 source 행을 복원(또는 `--reembed`), 아니면 그 열을 채우거나 다른 `--fill` 열을 고르세요. |
 | `error [E_PLAN]: New metadata column year cannot be NULL` | sqlite-vec 0.1.9 는 메타데이터 열에 NULL 을 받지 않음. | `--fill year=<본문 열>` 추가. |
 | 차원을 바꿀 때 `E_PLAN` | 새 차원에는 새 벡터가 필요함. | `--reembed` 와 `--source <테이블>:<키>:<텍스트>` 추가. |
 | `--on-invalid skip` 뒤에도 `check` 가 `missing-vector` 를 보고 | 건너뛴 행은 설계상 옮겨지지 않음. | 본문 텍스트를 고쳐 임베딩하거나, skip 없이 `migrate --reembed` 다시 실행. |
@@ -324,7 +325,7 @@ flowchart LR
 ```bash
 npm ci
 npm run build
-npm test            # 테스트 77개, 네트워크·키 없음
+npm test            # 테스트 79개, 네트워크·키 없음
 ```
 
 이 환경에서 확인한 조합: macOS arm64, Node v26.13.0, better-sqlite3 13.2.0, sqlite-vec 0.1.9(SQLite 3.54.1). CI 는 Ubuntu·macOS 에서 Node 22·24·26 을 돌립니다. 이슈와 제안은 환영합니다. 변경 기록은 [CHANGELOG.md](CHANGELOG.md).

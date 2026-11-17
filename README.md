@@ -315,6 +315,7 @@ Stop the app that uses the database before you run `migrate`. If another connect
 | `error [E_VERIFY]` and a leftover temporary table | Recall (or another check) failed; the original is untouched. | Rerun with a lower `--min-recall`, or remove it with `--abort`. |
 | `error [E_RESUME_MISMATCH]` | An unfinished run exists for a different plan. | Use the same options, or `--abort` first. |
 | `error [E_PLAN]: New metadata column year cannot be NULL` | sqlite-vec 0.1.9 does not accept NULL in metadata columns. | Add `--fill year=<source column>`. |
+| `error [E_PLAN]: N rows have no value for new metadata column …` | Orphan vectors (no row in the source table) or NULL in the `--fill` source column; the message lists example rowids. | Run `check --source <table>:<key>`, then delete the orphans or restore the source rows (or use `--reembed`); otherwise fill the column or pick another `--fill` column. |
 | `E_PLAN` on a dimension change | The new dimensions need new vectors. | Add `--reembed` and `--source <table>:<key>:<text>`. |
 | `check` still reports `missing-vector` after `--on-invalid skip` | Skipped rows are not carried over, by design. | Fix the source text and embed them, or re-run `migrate --reembed` without skipping. |
 | `npm warn install-scripts … better-sqlite3` | npm notes an install script it does not run. | Ignore: the prebuilt binary is bundled and tests pass without it. |
@@ -324,7 +325,7 @@ Stop the app that uses the database before you run `migrate`. If another connect
 ```bash
 npm ci
 npm run build
-npm test            # 77 tests, no network, no keys
+npm test            # 79 tests, no network, no keys
 ```
 
 Verified here on macOS arm64 with Node v26.13.0, better-sqlite3 13.2.0, sqlite-vec 0.1.9 (SQLite 3.54.1). CI runs Node 22, 24 and 26 on Ubuntu and macOS. Issues and suggestions are welcome. Changes are listed in [CHANGELOG.md](CHANGELOG.md).
