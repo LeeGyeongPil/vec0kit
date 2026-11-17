@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 - 2026-11-17
+
+### Fixed
+
+- `migrate --fill` now explains why rows have no value (orphan vectors with no source row, or NULL in the source column), lists example rowids and says how to fix it, in English and Korean.
+
 ## 0.1.0 - 2026-11-17
 
 First release.

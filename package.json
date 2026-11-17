@@ -1,6 +1,6 @@
 {
   "name": "vec0kit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Inspect, check and safely migrate sqlite-vec vec0 tables (change dimensions, distance metric, quantization, metadata columns, re-embed) without hand-written scripts.",
   "license": "MIT",
   "type": "module",
